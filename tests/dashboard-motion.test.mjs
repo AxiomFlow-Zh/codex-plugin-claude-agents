@@ -1080,12 +1080,77 @@ test('extracts active jobs for parallel lanes preserving all queued, starting, a
     { jobId: 'job-2', agent: 'frontend-engineer', status: 'running', phase: 'verifying', task: 'Task 2' },
     { jobId: 'job-3', agent: 'qa-engineer', status: 'queued', phase: null, task: 'Task 3' },
     { jobId: 'job-4', agent: 'devops-engineer', status: 'completed', phase: 'completed', task: 'Task 4' },
+    { jobId: 'job-5', agent: 'security-engineer', status: 'starting', phase: 'starting', task: 'Task 5' },
   ];
   const active = activeJobsList(jobs);
-  assert.equal(active.length, 3);
-  assert.deepEqual(active.map((j) => j.jobId), ['job-1', 'job-2', 'job-3']);
-  const links = activeTopologyLinks([{ id: 'backend-engineer' }, { id: 'frontend-engineer' }], jobs);
-  assert.equal(links.length, 3);
+  assert.equal(active.length, 4);
+  assert.deepEqual(active.map((j) => j.jobId), ['job-1', 'job-2', 'job-3', 'job-5']);
+  const links = activeTopologyLinks(
+    [{ id: 'backend-engineer' }, { id: 'frontend-engineer' }, { id: 'qa-engineer' }, { id: 'security-engineer' }],
+    jobs,
+  );
+  assert.equal(links.length, 4);
+  assert.match(dashboardApp, /activeJobsList\(state\.jobs\)/);
+  assert.doesNotMatch(dashboardApp, /activeJobsList\(state\.jobs\)\.slice\(/);
+  assert.doesNotMatch(dashboardApp, /activeJobsList\([^)]*\)\s*\[\s*0\s*\]/);
+});
+
+test('resource panel parallel lanes use a three-row grid with bounded overflow and ellipsis chain', () => {
+  // Top-level only: ruleBlock merges @media overrides and would mask min-height: 0.
+  const resourcePanel = ruleBlockIn(styles, '.resource-panel', '');
+  assert.match(resourcePanel, /grid-template-rows:\s*24px\s+minmax\(0,\s*1fr\)\s+minmax\(0,\s*42%\)/);
+  assert.equal(declaration(resourcePanel, 'min-width'), '0');
+  assert.equal(declaration(resourcePanel, 'min-height'), '0');
+
+  const lanesWrap = ruleBlockIn(styles, '.parallel-lanes-wrap', '');
+  assert.equal(declaration(lanesWrap, 'min-width'), '0');
+  assert.equal(declaration(lanesWrap, 'min-height'), '0');
+  assert.equal(declaration(lanesWrap, 'overflow'), 'hidden');
+  assert.match(lanesWrap, /grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)/);
+
+  const activeLanes = ruleBlockIn(styles, '.active-lanes-list', '');
+  assert.equal(declaration(activeLanes, 'width'), '100%');
+  assert.equal(declaration(activeLanes, 'max-width'), '100%');
+  assert.equal(declaration(activeLanes, 'min-width'), '0');
+  assert.equal(declaration(activeLanes, 'min-height'), '0');
+  assert.equal(declaration(activeLanes, 'overflow-x'), 'hidden');
+  assert.equal(declaration(activeLanes, 'overflow-y'), 'auto');
+
+  const laneRow = ruleBlockIn(styles, '.parallel-lane-row', '');
+  assert.equal(declaration(laneRow, 'min-width'), '0');
+  assert.equal(declaration(laneRow, 'max-width'), '100%');
+
+  const laneInfo = ruleBlockIn(styles, '.lane-info', '');
+  assert.equal(declaration(laneInfo, 'min-width'), '0');
+  assert.match(declaration(laneInfo, 'flex'), /^1\b/);
+
+  const laneAgent = ruleBlockIn(styles, '.lane-agent', '');
+  assert.equal(declaration(laneAgent, 'min-width'), '0');
+  assert.equal(declaration(laneAgent, 'overflow'), 'hidden');
+  assert.equal(declaration(laneAgent, 'text-overflow'), 'ellipsis');
+  assert.equal(declaration(laneAgent, 'white-space'), 'nowrap');
+
+  const lanePhase = ruleBlockIn(styles, '.lane-phase', '');
+  assert.equal(declaration(lanePhase, 'overflow'), 'hidden');
+  assert.equal(declaration(lanePhase, 'text-overflow'), 'ellipsis');
+  assert.equal(declaration(lanePhase, 'white-space'), 'nowrap');
+
+  const laneTask = ruleBlockIn(styles, '.lane-task', '');
+  assert.equal(declaration(laneTask, 'min-width'), '0');
+  assert.equal(declaration(laneTask, 'overflow'), 'hidden');
+  assert.equal(declaration(laneTask, 'text-overflow'), 'ellipsis');
+  assert.equal(declaration(laneTask, 'white-space'), 'nowrap');
+
+  assert.equal(declaration(ruleBlockIn(styles, '.lane-status-badge', ''), 'flex-shrink'), '0');
+  assert.equal(declaration(ruleBlockIn(styles, '.lane-time', ''), 'flex-shrink'), '0');
+  assert.equal(declaration(ruleBlockIn(styles, '.lane-time', ''), 'white-space'), 'nowrap');
+
+  const resourceList = ruleBlockIn(styles, '.resource-list', '');
+  assert.equal(declaration(resourceList, 'min-width'), '0');
+  assert.equal(declaration(resourceList, 'min-height'), '0');
+
+  const mobileRule = atRuleBody(styles, '@media (max-width: 900px)');
+  assert.match(mobileRule, /\.recent-panel,\s*\.resource-panel,\s*\.success-panel,\s*\.alert-panel\s*\{[^}]*min-height:\s*300px/);
 });
 
 test('tracks bounded 60-second snapshot history and generates real trend sparklines without mutating inputs', () => {
