@@ -2,13 +2,14 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-一个本地 Codex 插件，用于把已经批准的实施计划委派给不同角色的 Claude Code CLI 智能体。Codex 负责规划、范围控制和最终审查，Claude Code 在目标仓库中执行委派任务。
+一个本地 Codex 插件，用于把已经批准的实施计划委派给不同角色的本地 CLI 智能体，覆盖 Claude、Codex、Grok 与 Antigravity。Codex 负责规划、范围控制和最终审查，选定的 Runner 在目标仓库中执行委派任务。
 
 ![Codex 与 Multi-CLI Agents 协作流程](./diagram/claude-code-agents-workflow.svg)
 
 ## 功能特性
 
-- 通过 `--agents` 和 `--agent` 使用 Claude Code 原生自定义智能体。
+- 支持 Claude Code、Codex CLI、Grok 与 Antigravity 多 Runner 执行。
+- 选择 Claude Runner 时，可通过 `--agents` 和 `--agent` 使用 Claude Code 原生自定义智能体。
 - 内置 8 个软件交付角色，每个角色拥有独立提示词和质量门禁。
 - 支持按智能体配置模型、思考强度、权限、超时、预算、API 网关和凭据。
 - 支持前台执行、后台任务、取消、结果持久化和会话恢复。
@@ -36,8 +37,8 @@
 ## 环境要求
 
 - Node.js 22.5 或更高版本。
-- 本机可以执行 `claude` 命令。
-- 已登录 Claude Code，或已配置兼容的 API 网关和凭据。
+- 本机至少有一个可用的 Runner CLI（`claude`、`codex`、`grok` 或 `agy`）。
+- 已登录对应 Runner，或已配置兼容的 API 网关和凭据。
 - Codex 客户端支持本地插件和 stdio MCP Server。
 
 ## 安装
@@ -80,7 +81,7 @@ codex plugin add multi-cli-agents@local-multi-cli-agents
 
 ```bash
 mkdir -p ~/.config/multi-cli-agents
-cp plugins/claude-code-agents/.env.example ~/.config/claude-code-agents/.env
+cp plugins/claude-code-agents/.env.example ~/.config/multi-cli-agents/.env
 chmod 600 ~/.config/multi-cli-agents/.env
 ```
 
@@ -122,10 +123,11 @@ default | acceptEdits | auto | bypassPermissions | dontAsk | plan
 配置优先级从低到高：
 
 1. 插件 `.env`。
-2. `~/.config/claude-code-agents/.env`。
-3. `<project>/.claude-agents.env`。
-4. Codex 进程继承的环境变量。
-5. 单次 `run_agent` 调用的非秘密覆盖字段。
+2. `~/.config/multi-cli-agents/.env`（兼容 `~/.config/claude-code-agents/.env`）。
+3. `<project>/.multi-cli-agents.env`（兼容 `.claude-agents.env`）。
+4. SQLite 控制台配置（`PLUGIN_DATA`）。
+5. Codex 进程继承的环境变量。
+6. 单次 `run_agent` 调用的非秘密覆盖字段。
 
 可以通过 `CLAUDE_AGENTS_CONFIG_FILE` 指定其他用户配置文件。
 
@@ -319,7 +321,7 @@ MIT
 
 ## 多 CLI Runner
 
-执行链现在按“角色 + Runner”编排。省略 `runner` 的旧调用仍然使用配置的默认 Runner；显式传入 `runner` 可以选择 `claude`、`codex`、`grok` 或 `agy`。`list_runners` 会返回实际 CLI 可用状态和能力声明。Claude 使用原生 `--agents`，Codex 调用 `codex exec --json`，Grok 使用 headless single-turn JSON/JSONL，Antigravity 使用 `agy --print` 文本输出。
+执行链按“角色 + Runner”编排，且执行渠道严格由配置决定：每个角色使用 `<ROLE>_DEFAULT_RUNNER` 配置的默认 Runner，`run_agent` 单次调用传入与配置不一致的 `runner` 会被拒绝，不允许编排方自行降级或切换渠道。需要切换渠道时，通过管理工具或仪表盘更新角色的默认 Runner 配置。`list_runners` 与 `list_agents(runner=...)` 仅用于只读预览。Claude 使用原生 `--agents`，Codex 调用 `codex exec --json`，Grok 使用 headless single-turn JSON/JSONL，Antigravity 使用 `agy --print` 文本输出。
 
 Runner 配置优先级为：Runner 默认值、角色默认 Runner、角色×Runner 配置、进程环境、单次非秘密覆盖。现有 `CLAUDE_DEFAULT_*` 与 `<ROLE>_*` 变量继续兼容。不同 Runner 的模型、effort、权限、输出和会话能力由各自 adapter 校验；不支持的请求会返回明确错误，不会静默降级。
 

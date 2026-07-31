@@ -2,11 +2,12 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-A local Codex plugin that delegates an approved implementation plan to role-specialized Claude Code CLI agents. Codex remains responsible for planning, scope control, and final review; Claude Code performs the delegated work in the target repository.
+A local Codex plugin that delegates an approved implementation plan to role-specialized local CLI agents across Claude, Codex, Grok, and Antigravity. Codex remains responsible for planning, scope control, and final review; the selected Runner performs the delegated work in the target repository.
 
 ## Features
 
-- Native Claude Code custom agents through `--agents` and `--agent`.
+- Multi-runner execution with Claude Code, Codex CLI, Grok, and Antigravity adapters.
+- Claude Code native custom agents through `--agents` and `--agent` when the Claude runner is selected.
 - Eight built-in software delivery roles with dedicated prompts and quality gates.
 - Per-agent model, effort, permission, timeout, budget, gateway, and credential settings.
 - Foreground execution, background jobs, cancellation, result persistence, and session resume.
@@ -34,8 +35,8 @@ A local Codex plugin that delegates an approved implementation plan to role-spec
 ## Requirements
 
 - Node.js 22.5 or later.
-- A working local `claude` command.
-- A Claude Code login, or a compatible API gateway and credentials.
+- At least one local Runner CLI available for the roles you plan to use (`claude`, `codex`, `grok`, or `agy`).
+- A login or compatible API gateway and credentials for the selected Runner.
 - A Codex client that supports local plugins and stdio MCP servers.
 
 ## Installation
@@ -78,7 +79,7 @@ Store long-lived user configuration outside the installed plugin cache:
 
 ```bash
 mkdir -p ~/.config/multi-cli-agents
-cp plugins/claude-code-agents/.env.example ~/.config/claude-code-agents/.env
+cp plugins/claude-code-agents/.env.example ~/.config/multi-cli-agents/.env
 chmod 600 ~/.config/multi-cli-agents/.env
 ```
 
@@ -120,10 +121,11 @@ default | acceptEdits | auto | bypassPermissions | dontAsk | plan
 Configuration precedence, from lowest to highest:
 
 1. Plugin `.env`.
-2. `~/.config/claude-code-agents/.env`.
-3. `<project>/.claude-agents.env`.
-4. Environment variables inherited by Codex.
-5. Non-secret overrides supplied to a single `run_agent` call.
+2. `~/.config/multi-cli-agents/.env` (legacy `~/.config/claude-code-agents/.env` still supported).
+3. `<project>/.multi-cli-agents.env` (legacy `.claude-agents.env` still supported).
+4. SQLite console configuration under `PLUGIN_DATA`.
+5. Environment variables inherited by Codex.
+6. Non-secret overrides supplied to a single `run_agent` call.
 
 Set `CLAUDE_AGENTS_CONFIG_FILE` to use a different user configuration file.
 

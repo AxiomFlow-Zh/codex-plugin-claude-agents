@@ -343,7 +343,9 @@ export class ClaudeAgentService {
   }
 
   runtimeFor(agent, cwd, overrides = {}) {
-    const layeredFiles = loadLayeredEnv({ pluginRoot: this.pluginRoot, cwd, processEnv: {} });
+    // Layered files remain a compatibility source, then SQLite console config,
+    // then process env, then one-run non-secret overrides.
+    const layeredFiles = loadLayeredEnv({ pluginRoot: this.pluginRoot, cwd, processEnv: process.env });
     const env = { ...layeredFiles, ...this.config.toEnv(), ...process.env };
     return resolveAgentRuntime({ agent, env, overrides, runner: overrides.runner });
   }
@@ -400,9 +402,19 @@ export class ClaudeAgentService {
   async run(input) {
     const agent = resolveAgent(this.registry, input.agent);
     const cwd = assertWorkingDirectory(input.cwd);
+    // Execution channel is strictly configuration-driven. A per-call runner
+    // override must never silently downgrade to a different CLI when the
+    // configured default is unavailable; switch <PREFIX>_DEFAULT_RUNNER in
+    // configuration instead.
+    const defaultRuntime = this.runtimeFor(agent, cwd);
+    const actualRunner = defaultRuntime.runner || 'claude';
     const requestedRunner = input.runner || undefined;
-    const configuredRuntime = this.runtimeFor(agent, cwd, { runner: requestedRunner });
-    const actualRunner = requestedRunner || configuredRuntime.runner || 'claude';
+    if (requestedRunner && requestedRunner !== actualRunner) {
+      throw new Error(
+        `Runner override rejected for ${agent.id}: configured default runner is "${actualRunner}", requested "${requestedRunner}". ` +
+        `Execution channel follows configuration only; update ${agent.prefix}_DEFAULT_RUNNER to switch.`
+      );
+    }
     resolveRunner(this.runners, actualRunner);
     const timeout = resolveRunnerTimeout({
       configuredTimeoutMs: this.runtimeFor(agent, cwd, { runner: actualRunner }).timeoutMs,

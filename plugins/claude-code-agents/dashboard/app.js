@@ -721,7 +721,7 @@ function fillCapabilitySelect(selector, values, configuredValue, fallbackValue) 
 function configContext() {
   const agent = state.agents.find((item) => item.id === $('#config-agent').value) || state.agents[0];
   const runner = $('#config-runner').value || 'default';
-  const config = runner === 'default' ? (agent?.configured || {}) : (agent?.configuredByRunner?.[runner] || {});
+  const config = runner === 'default' ? (agent?.configuredDefault || agent?.configured || {}) : (agent?.configuredByRunner?.[runner] || {});
   const runnerId = runner === 'default' ? (config.runner || agent?.runtime?.runner || 'claude') : runner;
   const capabilities = state.runners.find((item) => item.id === runnerId)?.capabilities || {};
   return { agent, runner, runnerId, config, capabilities, fields: visibleConfigFields(capabilities, agent?.id) };
@@ -809,7 +809,19 @@ async function loadModelCatalog(context) {
     if (requestId === state.modelRequestId && modelCatalogKey(configContext()) === key) renderModelCatalog(context, catalog);
   }
 }
-function fillConfig() {
+function resetRunnerSelectionForAgent() {
+  const agent = state.agents.find((item) => item.id === $('#config-agent').value) || state.agents[0];
+  const agentRunner = agent?.configuredDefault?.runner || agent?.runtime?.runner || 'claude';
+  const runnerSelect = $('#config-runner');
+  const targetRunner = [...runnerSelect.options].some((opt) => opt.value === agentRunner) ? agentRunner : 'default';
+  runnerSelect.value = targetRunner;
+  syncCustomSelect(runnerSelect);
+}
+function fillConfig({ resetRunner = false } = {}) {
+  // Only reset the Runner dropdown when the selected agent changes. Runner
+  // changes must preserve the user's explicit selection so non-default
+  // channels can still be inspected and saved.
+  if (resetRunner) resetRunnerSelectionForAgent();
   const context = configContext();
   setConfigFieldVisibility(context);
   fillCapabilitySelect('#cfg-effort', capabilityOptions(context.capabilities, 'effort'), context.config.effort, context.capabilities.defaultEffort || 'high');
@@ -863,7 +875,7 @@ function trapModalFocus(event) {
 function openSettings(tab = 'agent') {
   document.querySelectorAll('.settings-tab').forEach((button) => button.classList.toggle('active', button.dataset.settingsTab === tab));
   document.querySelectorAll('.settings-pane').forEach((pane) => pane.classList.toggle('active', pane.dataset.settingsPane === tab));
-  renderConfigOptions(); fillConfig(); renderInstall(); openModal('settings-modal');
+  renderConfigOptions(); fillConfig({ resetRunner: true }); renderInstall(); openModal('settings-modal');
 }
 function filteredEvents() {
   if (state.tab === 'events') return state.events.filter(hasEventDetail);
@@ -955,8 +967,8 @@ async function saveConfig() {
 }
 
 $('#settings-open').addEventListener('click', () => openSettings('agent'));
-$('#config-agent').addEventListener('change', () => { rememberConfigSelection(); fillConfig(); });
-$('#config-runner').addEventListener('change', () => { rememberConfigSelection(); fillConfig(); });
+$('#config-agent').addEventListener('change', () => { fillConfig({ resetRunner: true }); rememberConfigSelection(); });
+$('#config-runner').addEventListener('change', () => { rememberConfigSelection(); fillConfig({ resetRunner: false }); });
 $('#cfg-gateway').addEventListener('input', () => {
   clearTimeout(gatewayModelTimer);
   gatewayModelTimer = setTimeout(() => { state.modelRequestId += 1; loadModelCatalog(configContext()); }, 300);

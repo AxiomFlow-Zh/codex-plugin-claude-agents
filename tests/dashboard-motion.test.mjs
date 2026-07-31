@@ -915,32 +915,34 @@ test('exposes a disconnected session status during SSE failure and recovers on r
 });
 
 test('charts fingerprint only includes chart data and canvas dimensions', () => {
+  const now = Date.parse('2026-07-17T12:00:00.000Z');
   const jobs = [{ jobId: 'job-1', status: 'running', phase: 'implementing', verificationState: 'pending', createdAt: '2026-07-17T10:00:00.000Z' }];
-  const baseline = chartFingerprint(jobs, { donut: [200, 100], execution: [400, 120], success: [400, 120] });
+  const baseline = chartFingerprint(jobs, { donut: [200, 100], execution: [400, 120], success: [400, 120] }, now);
 
-  assert.equal(chartFingerprint([{ ...jobs[0], phase: 'verifying', verificationState: 'passed', task: 'unrelated' }], { donut: [200, 100], execution: [400, 120], success: [400, 120] }), baseline);
-  assert.notEqual(chartFingerprint(jobs, { donut: [201, 100], execution: [400, 120], success: [400, 120] }), baseline);
-  assert.notEqual(chartFingerprint([{ ...jobs[0], status: 'completed' }], { donut: [200, 100], execution: [400, 120], success: [400, 120] }), baseline);
+  assert.equal(chartFingerprint([{ ...jobs[0], phase: 'verifying', verificationState: 'passed', task: 'unrelated' }], { donut: [200, 100], execution: [400, 120], success: [400, 120] }, now), baseline);
+  assert.notEqual(chartFingerprint(jobs, { donut: [201, 100], execution: [400, 120], success: [400, 120] }, now), baseline);
+  assert.notEqual(chartFingerprint([{ ...jobs[0], status: 'completed' }], { donut: [200, 100], execution: [400, 120], success: [400, 120] }, now), baseline);
 });
 
 test('charts fingerprint normalized chart buckets independent of identity, timestamp precision, and order', () => {
+  const now = Date.parse('2026-07-17T12:00:00.000Z');
   const dimensions = { donut: [200, 100], execution: [400, 120], success: [400, 120] };
   const jobs = [
     { jobId: 'job-1', status: 'running', createdAt: '2026-07-17T10:00:00+08:00' },
     { jobId: 'job-2', status: 'completed', createdAt: '2026-07-16T11:00:00+08:00' },
   ];
-  const baseline = chartFingerprint(jobs, dimensions);
+  const baseline = chartFingerprint(jobs, dimensions, now);
 
   assert.equal(chartFingerprint([
     { ...jobs[0], jobId: 'new-id', createdAt: '2026-07-17T23:59:59.999+08:00', phase: 'verifying', task: 'ignored' },
     { ...jobs[1], jobId: 'other-id', createdAt: '2026-07-16T00:00:01.000Z', verificationState: 'passed', tokens: 99 },
-  ], dimensions), baseline);
-  assert.equal(chartFingerprint([...jobs].reverse(), dimensions), baseline);
-  assert.notEqual(chartFingerprint([...jobs, { jobId: 'job-3', status: 'queued', createdAt: '2026-07-17T12:00:00.000Z' }], dimensions), baseline);
-  assert.notEqual(chartFingerprint([jobs[0]], dimensions), baseline);
-  assert.notEqual(chartFingerprint([{ ...jobs[0], status: 'completed' }, jobs[1]], dimensions), baseline);
-  assert.notEqual(chartFingerprint([{ ...jobs[0], createdAt: '2026-07-18T10:00:00.000Z' }, jobs[1]], dimensions), baseline);
-  assert.notEqual(chartFingerprint(jobs, { ...dimensions, execution: [401, 120] }), baseline);
+  ], dimensions, now), baseline);
+  assert.equal(chartFingerprint([...jobs].reverse(), dimensions, now), baseline);
+  assert.notEqual(chartFingerprint([...jobs, { jobId: 'job-3', status: 'queued', createdAt: '2026-07-17T12:00:00.000Z' }], dimensions, now), baseline);
+  assert.notEqual(chartFingerprint([jobs[0]], dimensions, now), baseline);
+  assert.notEqual(chartFingerprint([{ ...jobs[0], status: 'completed' }, jobs[1]], dimensions, now), baseline);
+  assert.notEqual(chartFingerprint([{ ...jobs[0], createdAt: '2026-07-18T10:00:00.000Z' }, jobs[1]], dimensions, now), baseline);
+  assert.notEqual(chartFingerprint(jobs, { ...dimensions, execution: [401, 120] }, now), baseline);
 });
 
 test('resource rows expose four keyed metric inputs and ignore unrelated metadata', () => {

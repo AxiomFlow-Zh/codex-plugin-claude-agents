@@ -123,16 +123,16 @@ UI 视觉验收可把 `agent` 改为 `ui-designer`，优先使用 `mcp`/`chrome`
 
 ## 8. 显式选择 Runner
 
-旧调用无需修改，默认 Runner 是 Claude：
+渠道由配置决定，默认 Runner 是 Claude：
 
 ```json
 {"agent":"backend-engineer","task":"...","plan":"<approved plan>"}
 ```
 
-需要使用其他 CLI 时显式传入：
+不需要（也不允许）在单次调用中显式选择 Runner：执行渠道严格使用角色配置的默认 Runner，传入与配置不一致的 `runner` 会被拒绝。需要切换渠道时，通过管理工具或仪表盘更新 `<ROLE>_DEFAULT_RUNNER`：
 
 ```json
-{"agent":"backend-engineer","runner":"codex","task":"...","plan":"<approved plan>"}
+{"agent":"backend-engineer","runner":"codex","task":"...","plan":"<approved plan>"} // 仅当 codex 与配置默认一致时有效
 ```
 
 可选 Runner 为 `claude`、`codex`、`grok` 和 `agy`。角色职责在 Claude 中使用原生 `--agents`，在其他 CLI 中以受控 role prompt 注入。Codex 使用 `codex exec --json`，Grok 使用 headless single-turn JSON/JSONL 输出，Antigravity 使用 `agy --print` 文本输出；浏览器、effort、resume 和权限能力不一致时，adapter 会明确拒绝不支持的请求。

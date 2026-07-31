@@ -1,6 +1,6 @@
 ---
 name: multi-cli-agent-admin
-description: 配置、检查、排障或扩展多 CLI Agent 插件；处理 Runner、.env、模型、思考强度、API 网关、密钥注入、智能体提示词、MCP 状态和 dry-run。
+description: 当用户要安装、配置、检查、排障或扩展 Multi-CLI Agents 插件时使用，包括角色默认 Runner、SQLite/兼容环境配置、模型、effort、权限、超时、网关凭据、浏览器 MCP、Dashboard、dry-run、智能体提示词和新增角色。不要用于执行普通的软件开发委派任务。
 ---
 
 # 多 CLI Agent 管理
@@ -17,14 +17,17 @@ description: 配置、检查、排障或扩展多 CLI Agent 插件；处理 Runn
 从低到高：
 
 1. 插件根目录 `.env`
-2. 当前项目 `.multi-cli-agents.env`（兼容 `.claude-agents.env`）
-3. SQLite 控制台配置
-4. 启动 Codex 的进程环境变量
-5. 单次 `run_agent` 的非秘密覆盖字段
+2. 用户级 `~/.config/multi-cli-agents/.env`（兼容 `~/.config/claude-code-agents/.env`）
+3. 当前项目 `.multi-cli-agents.env`（兼容 `.claude-agents.env`）
+4. SQLite 控制台配置
+5. 启动 Codex 的进程环境变量
+6. 单次 `run_agent` 的非秘密覆盖字段
 
 单次 `timeoutMs` 默认只能延长角色配置。缩短 Runner 执行时间必须由用户明确要求，并同时设置 `allowShorterTimeout=true`。等待 MCP 返回使用 `job_wait.timeout_ms`，不要用 Runner 超时代替等待超时。
 
 不要通过单次工具参数传递真实密钥。
+
+运行渠道严格来自配置：`run_agent` 不接受与 `<PREFIX>_DEFAULT_RUNNER` 不一致的单次 `runner` 覆盖，会被服务端拒绝；渠道切换只能通过修改角色的默认 Runner 配置完成，不允许编排方自行降级或换渠道。`<PREFIX>_GATEWAY_URL`/`<PREFIX>_API_KEY` 未配置时不视为不可用：此时 Runner 走自身 CLI 的本地登录授权，网关与密钥仅作为可选覆盖。
 
 ## 每个智能体的变量
 

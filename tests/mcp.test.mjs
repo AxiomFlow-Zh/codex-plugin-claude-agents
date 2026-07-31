@@ -18,11 +18,16 @@ test('skill metadata uses Multi-CLI labels and the canonical MCP dependency', ()
   const orchestratorYaml = fs.readFileSync(path.join(skillRoot, 'claude-orchestrator', 'agents', 'openai.yaml'), 'utf8');
   const adminYaml = fs.readFileSync(path.join(skillRoot, 'claude-agent-admin', 'agents', 'openai.yaml'), 'utf8');
   const orchestratorSkill = fs.readFileSync(path.join(skillRoot, 'claude-orchestrator', 'SKILL.md'), 'utf8');
+  const adminSkill = fs.readFileSync(path.join(skillRoot, 'claude-agent-admin', 'SKILL.md'), 'utf8');
   assert.match(orchestratorYaml, /display_name: "Multi-CLI Agent 编排"/);
   assert.doesNotMatch(orchestratorYaml, /Claude Code/);
   assert.match(orchestratorYaml, /value: "multi_cli_agents"/);
   assert.match(adminYaml, /value: "multi_cli_agents"/);
-  assert.doesNotMatch(`${orchestratorYaml}\n${adminYaml}\n${orchestratorSkill}`, /claude_code_agents/);
+  assert.match(orchestratorYaml, /复用已有计划，或先规划再委派本地 CLI 智能体/);
+  assert.match(adminYaml, /配置 Runner、模型、网关、Dashboard 与排障/);
+  assert.match(orchestratorSkill, /不要用于未要求智能体委派的普通编码任务或插件配置排障/);
+  assert.match(adminSkill, /不要用于执行普通的软件开发委派任务/);
+  assert.doesNotMatch(`${orchestratorYaml}\n${adminYaml}\n${orchestratorSkill}\n${adminSkill}`, /claude_code_agents/);
 });
 
 test('dashboard detects the installed plugin from Codex config when marketplace listing is unavailable', () => {
@@ -45,6 +50,14 @@ test('dashboard validates configuration against Runner capabilities before persi
   assert.throws(() => validateRunnerConfig('codex', { effort: 'extreme' }), /Codex CLI effort must be one of:/);
   assert.doesNotThrow(() => validateRunnerConfig('codex', { gatewayUrl: 'http://localhost:8080', apiKey: 'secret' }));
   assert.throws(() => validateRunnerConfig('agy', { outputFormat: 'stream-json' }), /does not expose outputFormat/);
+});
+
+test('dashboard config form only resets runner selection on agent changes', () => {
+  const appSource = fs.readFileSync(path.join(pluginRoot, 'dashboard', 'app.js'), 'utf8');
+  assert.match(appSource, /function fillConfig\(\{ resetRunner = false \} = \{\}\)/);
+  assert.match(appSource, /if \(resetRunner\) resetRunnerSelectionForAgent\(\)/);
+  assert.match(appSource, /\$\('#config-agent'\)\.addEventListener\('change', \(\) => \{ fillConfig\(\{ resetRunner: true \}\)/);
+  assert.match(appSource, /\$\('#config-runner'\)\.addEventListener\('change', \(\) => \{ rememberConfigSelection\(\); fillConfig\(\{ resetRunner: false \}\)/);
 });
 
 function isolatedEnv(name, extra = {}) {

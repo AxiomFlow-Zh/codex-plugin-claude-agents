@@ -44,7 +44,8 @@ test('SQLite config store rejects invalid dashboard values and round-trips brows
   assert.throws(() => store.writeAgentConfig({ agent, values: { timeoutMs: -1 } }), /timeoutMs/);
   assert.throws(() => store.writeAgentConfig({ agent, values: { gatewayUrl: 'file:///tmp/gateway' } }), /http\(s\)/);
   assert.throws(() => store.writeAgentConfig({ agent, values: { browserMcpConfigsJson: '[]' } }), /JSON object/);
-  store.writeAgentConfig({ agent, values: { outputFormat: 'stream-json', browserMcpConfigsJson: '{"playwright":"/tmp/mcp.json"}' } });
+  store.writeAgentConfig({ agent, values: { permissionMode: 'default', outputFormat: 'stream-json', browserMcpConfigsJson: '{"playwright":"/tmp/mcp.json"}' } });
+  assert.equal(store.toEnv().FRONTEND_ENGINEER_PERMISSION_MODE, 'default');
   assert.equal(store.toEnv().FRONTEND_ENGINEER_OUTPUT_FORMAT, 'stream-json');
   assert.equal(store.toEnv().FRONTEND_ENGINEER_BROWSER_MCP_CONFIGS_JSON, '{"playwright":"/tmp/mcp.json"}');
 });

@@ -11,7 +11,7 @@ const FIELD_SUFFIX = Object.freeze({
 
 const ENUMS = Object.freeze({
   effort: new Set(['default', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']),
-  permissionMode: new Set(['auto', 'plan', 'acceptEdits', 'bypassPermissions']),
+  permissionMode: new Set(['default', 'auto', 'plan', 'acceptEdits', 'bypassPermissions', 'dontAsk']),
   apiKeyKind: new Set(['auth_token', 'api_key']),
   runner: new Set(['claude', 'codex', 'grok', 'agy']),
   outputFormat: new Set(['text', 'json', 'stream-json']),

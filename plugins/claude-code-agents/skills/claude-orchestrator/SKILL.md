@@ -1,6 +1,6 @@
 ---
 name: multi-cli-orchestrator
-description: 当用户说“启用某某智能体”、要求 Codex 先规划再调用本地 CLI Agent 实现、把任务交给后端工程师/架构师/前端工程师/UI设计师/全栈/测试/安全/DevOps 智能体时使用。Codex 必须先识别当前对话中已存在的具体计划；若尚无计划才先规划，然后调用 multi_cli_agents MCP 工具执行。
+description: 当用户明确要求启用、调用或把软件任务交给本地 CLI 专业智能体时使用，支持架构、后端、前端、UI、全栈、测试、安全和 DevOps 角色。复用当前对话中已有的可执行计划；缺少计划时先完成必要规划，再通过 multi_cli_agents 委派并审查结果。不要用于未要求智能体委派的普通编码任务或插件配置排障。
 ---
 
 # Codex → 多 CLI Agent 编排
@@ -44,7 +44,7 @@ Codex 是规划者、范围控制者和最终审查者。选定的本地 CLI Run
    - 当前对话已经有 Codex 输出且用户要求“按这个计划落地”时，原样复用该计划，不重新规划。
    - 当前对话没有可执行计划时，才输出一个有顺序的计划，至少包含目标与非目标、真实模块/文件、契约、实施步骤、风险、验证命令和验收标准。
 4. **选择一个主智能体**：按任务的主要风险选择，而不是按文件后缀选择。跨层功能优先 `fullstack-engineer`。
-5. **调用 `run_agent`**：顺序单 Agent 任务默认显式传入 `background=false`，让 MCP 服务端等待并在完成后只恢复一次 Codex 回合；只有需要并行、独立进度观察或脱离当前回合运行时才使用 `background=true`。调用时传入 `agent`、具体 `task`、当前已批准的完整 `plan`、`acceptanceCriteria`、`cwd`。模型、effort 和 Runner 执行超时默认由插件配置解析，不要无故覆盖。只有用户明确要求缩短执行时间时，才同时传入较小的 `timeoutMs` 与 `allowShorterTimeout=true`；等待后台结果使用 `job_wait.timeout_ms`，不得混用。
+5. **调用 `run_agent`**：顺序单 Agent 任务默认显式传入 `background=false`，让 MCP 服务端等待并在完成后只恢复一次 Codex 回合；只有需要并行、独立进度观察或脱离当前回合运行时才使用 `background=true`。调用时传入 `agent`、具体 `task`、当前已批准的完整 `plan`、`acceptanceCriteria`、`cwd`。**不得传 `runner`**：执行渠道只由角色配置 `<ROLE>_DEFAULT_RUNNER` 决定；禁止因默认渠道执行失败而自行降级/切换渠道。未配置 `<ROLE>_GATEWAY_URL`/`<ROLE>_API_KEY` 不等于渠道不可用——此时 Runner 走自身 CLI 的本地登录授权，属正常可用状态；只有 CLI 未安装或未登录（可用 `list_runners`、`--version` 与本地登录状态确认）时才视为渠道不可用，返回 `blocked` 并提示修复，由用户决定是否改配置。模型、effort 和 Runner 执行超时默认由插件配置解析，不要无故覆盖。只有用户明确要求缩短执行时间时，才同时传入较小的 `timeoutMs` 与 `allowShorterTimeout=true`；等待后台结果使用 `job_wait.timeout_ms`，不得混用。
    - UI 视觉验收选择 `ui-designer`：优先用 `mcp` 或 `chrome` 检查真实渲染、目标视口、交互状态并保留截图；只有验收明确要求自动断言时才优先 `repository`。
    - 前端实现自测选择 `frontend-engineer`：涉及可运行页面且要求浏览器验证时优先 `repository`，检查受影响路径、响应式与交互行为、控制台错误和证据。
    - `qa-engineer` 负责独立冒烟、回归或 E2E：仓库已有 Playwright/Cypress 时优先 `repository`；已配置浏览器 MCP 时用 `mcp`；只有直接 Anthropic 登录且必须复用现有 Chrome 登录态时才用 `chrome`，API 网关环境不得选择该模式。
@@ -58,6 +58,7 @@ Codex 是规划者、范围控制者和最终审查者。选定的本地 CLI Run
 
 - `list_agents`：配置检查或用户询问可用智能体时使用。
 - `run_agent`：只有在 `plan` 已经具体且非空时使用。
+- `run_agent.runner`：禁止使用。执行渠道严格由 `<ROLE>_DEFAULT_RUNNER` 配置决定；传入与配置不一致的 runner 会被服务端拒绝，传入一致值也无需显式传递。需要切换渠道时，通过管理工具或仪表盘修改该角色的默认 Runner 配置，不得在单次调用中覆盖。
 - `run_agent.timeoutMs`：Runner 执行超时，默认省略并沿用角色配置；较短覆盖必须得到用户明确要求并配合 `allowShorterTimeout=true`。
 - `background=false`：顺序任务的默认路径；MCP 请求保持挂起，Agent 完成后只恢复一次 Codex 回合。
 - `background=true`：只用于并行、显式进度观察或需要先返回 Job ID 的任务；创建后调用一次 `job_wait`，不要自动循环调用 `job_status`。

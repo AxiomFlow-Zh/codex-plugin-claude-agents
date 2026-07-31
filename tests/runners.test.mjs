@@ -122,6 +122,7 @@ process.stdout.write(JSON.stringify({ type: 'turn.completed', usage: { input_tok
   process.env.MOCK_CAPTURE_PATH = capture;
   try {
     const service = new ClaudeAgentService({ pluginRoot, dataRoot: path.join(temp, 'data') });
+    service.config.writeAgentConfig({ agent: { prefix: 'BACKEND_ENGINEER' }, values: { runner: 'codex' }, runner: 'default' });
     const result = await service.run({
       agent: 'backend-engineer',
       runner: 'codex',
@@ -159,7 +160,7 @@ test('Codex rejects unknown effort, browser, resume, and session capabilities', 
   assert.throws(() => buildCodexInvocation({ pluginRoot, agent, runtime: codexRuntime(), request: request({ sessionId: 'new-thread' }) }), /does not support sessionId/);
 });
 
-test('runner defaults resolve from canonical and legacy configuration layers', async () => {
+test('runner defaults resolve from SQLite and legacy env layers', async () => {
   const canonical = fs.mkdtempSync(path.join(os.tmpdir(), 'runner-default-'));
   fs.writeFileSync(path.join(canonical, '.claude-agents.env'), 'DEFAULT_RUNNER=codex\nCODEX_DEFAULT_MODEL=gpt-canonical\n');
   const canonicalService = new ClaudeAgentService({ pluginRoot, dataRoot: path.join(canonical, 'data') });
@@ -174,8 +175,38 @@ test('runner defaults resolve from canonical and legacy configuration layers', a
   assert.equal(roleResult.runner, 'codex');
   assert.equal(roleResult.model, 'gpt-role');
 
-  const explicit = await roleService.run({ agent: 'backend-engineer', runner: 'claude', task: 'x', plan: '1. x', cwd: roleDefault, dryRun: true });
-  assert.equal(explicit.runner, 'claude');
+  // Per-call runner overrides are rejected unless they match the configured
+  // default, so an orchestrator cannot silently downgrade to another channel.
+  await assert.rejects(
+    roleService.run({ agent: 'backend-engineer', runner: 'claude', task: 'x', plan: '1. x', cwd: roleDefault, dryRun: true }),
+    /Runner override rejected for backend-engineer: configured default runner is "codex", requested "claude"/
+  );
+  const sameAsDefault = await roleService.run({ agent: 'backend-engineer', runner: 'codex', task: 'x', plan: '1. x', cwd: roleDefault, dryRun: true });
+  assert.equal(sameAsDefault.runner, 'codex');
+
+  const sqliteOverride = fs.mkdtempSync(path.join(os.tmpdir(), 'runner-sqlite-override-'));
+  fs.writeFileSync(path.join(sqliteOverride, '.claude-agents.env'), 'BACKEND_ENGINEER_DEFAULT_RUNNER=claude\n');
+  const sqliteService = new ClaudeAgentService({ pluginRoot, dataRoot: path.join(sqliteOverride, 'data') });
+  sqliteService.config.writeAgentConfig({ agent: { prefix: 'BACKEND_ENGINEER' }, values: { runner: 'codex' }, runner: 'default' });
+  sqliteService.config.writeAgentConfig({ agent: { prefix: 'BACKEND_ENGINEER' }, values: { model: 'gpt-sqlite' }, runner: 'codex' });
+  const sqliteResult = await sqliteService.run({ agent: 'backend-engineer', task: 'x', plan: '1. x', cwd: sqliteOverride, dryRun: true });
+  assert.equal(sqliteResult.runner, 'codex');
+  assert.equal(sqliteResult.model, 'gpt-sqlite');
+
+  const explicitConfig = fs.mkdtempSync(path.join(os.tmpdir(), 'runner-explicit-config-'));
+  const explicitConfigFile = path.join(explicitConfig, 'custom.env');
+  fs.writeFileSync(explicitConfigFile, 'BACKEND_ENGINEER_DEFAULT_RUNNER=codex\nBACKEND_ENGINEER_CODEX_MODEL=gpt-explicit\n');
+  const previousConfigFile = process.env.MULTI_CLI_AGENTS_CONFIG_FILE;
+  process.env.MULTI_CLI_AGENTS_CONFIG_FILE = explicitConfigFile;
+  try {
+    const explicitService = new ClaudeAgentService({ pluginRoot, dataRoot: path.join(explicitConfig, 'data') });
+    const explicitResult = await explicitService.run({ agent: 'backend-engineer', task: 'x', plan: '1. x', cwd: explicitConfig, dryRun: true });
+    assert.equal(explicitResult.runner, 'codex');
+    assert.equal(explicitResult.model, 'gpt-explicit');
+  } finally {
+    if (previousConfigFile === undefined) delete process.env.MULTI_CLI_AGENTS_CONFIG_FILE;
+    else process.env.MULTI_CLI_AGENTS_CONFIG_FILE = previousConfigFile;
+  }
 
   const legacy = resolveAgentRuntime({ agent, env: { BACKEND_ENGINEER_RUNNER: 'codex', CODEX_DEFAULT_MODEL: 'gpt-legacy' } });
   assert.equal(legacy.runner, 'codex');
@@ -312,10 +343,12 @@ test('Grok and Antigravity runners execute through the shared supervisor', async
   fs.chmodSync(grokMock, 0o755);
   fs.chmodSync(agyMock, 0o755);
   const service = new ClaudeAgentService({ pluginRoot, dataRoot: path.join(temp, 'data') });
+  service.config.writeAgentConfig({ agent: { prefix: 'BACKEND_ENGINEER' }, values: { runner: 'grok' }, runner: 'default' });
   const grok = await service.run({ agent: agent.id, runner: 'grok', grokBin: grokMock, task: 'grok mock', plan: '1. Run.', cwd: temp });
   assert.equal(grok.status, 'completed');
   assert.equal(grok.runner, 'grok');
   assert.equal(grok.text, 'grok final');
+  service.config.writeAgentConfig({ agent: { prefix: 'BACKEND_ENGINEER' }, values: { runner: 'agy' }, runner: 'default' });
   const agy = await service.run({ agent: agent.id, runner: 'agy', agyBin: agyMock, task: 'agy mock', plan: '1. Run.', cwd: temp });
   assert.equal(agy.status, 'completed');
   assert.equal(agy.runner, 'agy');

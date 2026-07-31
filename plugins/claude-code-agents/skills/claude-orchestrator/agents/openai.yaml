@@ -1,8 +1,8 @@
 interface:
   display_name: "Multi-CLI Agent 编排"
-  short_description: "Codex 先规划，再委派合适的本地 CLI Runner"
+  short_description: "复用已有计划，或先规划再委派本地 CLI 智能体"
   brand_color: "#10A37F"
-  default_prompt: "先制定实施计划，然后选择合适的本地 CLI Runner 与专业智能体执行，并由 Codex 审查结果。"
+  default_prompt: "若当前对话已有可执行计划则直接复用；否则先制定计划，再选择合适的本地 CLI Runner 与专业智能体执行，并由 Codex 审查结果。"
 policy:
   allow_implicit_invocation: true
 dependencies:

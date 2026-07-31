@@ -158,13 +158,16 @@ export async function startDashboard({ service, pluginRoot, port = 0, open = fal
         const runners = service.listRunners ? service.listRunners({ cwd }) : [];
         const agents = service.listAgents({ cwd });
         const configuredByAgent = new Map(agents.map((item) => {
-          const resolved = resolveAgent(service.registry, item.id);
+         const resolved = resolveAgent(service.registry, item.id);
           const configuredByRunner = Object.fromEntries(runners.map((runner) => [
             runner.id,
             service.config.effectiveFor(resolved, service.runtimeFor(resolved, cwd, { runner: runner.id })),
           ]));
-          const configured = configuredByRunner[item.runtime?.runner] || item.configured || configuredByRunner[runners.find((runner) => runner.default)?.id];
-          return [item.id, { configured, configuredByRunner }];
+          // Also compute the "default runner" effective config (no runner override)
+          // so the Dashboard can show what was saved under the bare role prefix.
+          const configuredDefault = service.config.effectiveFor(resolved, service.runtimeFor(resolved, cwd));
+          const configured = configuredByRunner[item.runtime?.runner] || configuredDefault || item.configured || configuredByRunner[runners.find((runner) => runner.default)?.id];
+          return [item.id, { configured, configuredDefault, configuredByRunner }];
         }));
         return json(res, 200, {
           runners,

@@ -425,8 +425,8 @@ function chartStatusCounts(jobs) {
   };
 }
 
-function chartDayInputs(jobs) {
-  const today = new Date();
+function chartDayInputs(jobs, now = Date.now()) {
+  const today = new Date(now);
   today.setHours(0, 0, 0, 0);
   const days = [];
   for (let offset = 6; offset >= 0; offset -= 1) {
@@ -449,11 +449,11 @@ function chartDayInputs(jobs) {
   return days;
 }
 
-export function chartFingerprint(jobs = [], dimensions = {}) {
+export function chartFingerprint(jobs = [], dimensions = {}, now = Date.now()) {
   const chartJobs = Array.isArray(jobs) ? jobs : [];
   return stableSerialize({
     donut: chartStatusCounts(chartJobs),
-    days: chartDayInputs(chartJobs),
+    days: chartDayInputs(chartJobs, now),
     dimensions,
   });
 }
